@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chord Progression Finder</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        label { display: block; margin-top: 10px; margin-bottom: 5px; }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            box-sizing: border-box;
+        }
+        button { background-color: #007bff; color: white; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #0056b3; }
+        #results { margin-top: 20px; padding: 10px; border: 1px solid #eee; border-radius: 4px; background-color: #f9f9f9; }
+        .progression { margin-bottom: 15px; }
+        .progression h3 { margin-top: 0; margin-bottom: 5px; color: #0056b3; }
+        .progression p { margin-left: 10px; }
+        .error { color: red; font-weight: bold; }
+        .loading { text-align: center; padding: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chord Progression Finder</h1>
+        <form id="chordForm">
+            <div>
+                <label for="musicalKey">Musical Key:</label>
+                <select id="musicalKey" name="musicalKey" required>
+                    <option value="">Loading keys...</option>
+                </select>
+            </div>
+            <div>
+                <label for="musicType">Music Type:</label>
+                <select id="musicType" name="musicType" required>
+                    <option value="">Loading types...</option>
+                </select>
+            </div>
+            <button type="submit">Get Chord Progressions</button>
+        </form>
+        <div id="results">
+            <p>Please select a key and music type, then click "Get Chord Progressions".</p>
+        </div>
+    </div>
+
+    <script>
+        const musicalKeySelect = document.getElementById('musicalKey');
+        const musicTypeSelect = document.getElementById('musicType');
+        const chordForm = document.getElementById('chordForm');
+        const resultsDiv = document.getElementById('results');
+
+        // Define backend URL. For local development, this assumes backend is on port 8080.
+        // This might need to be configurable if deploying to different URLs.
+        const backendBaseUrl = 'http://localhost:8080';
+
+        async function fetchConfig() {
+            try {
+                const response = await fetch(`${backendBaseUrl}/api/config`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const config = await response.json();
+
+                populateSelect(musicalKeySelect, config.musicalKeys, 'Select a Key');
+                populateSelect(musicTypeSelect, config.musicTypes, 'Select a Music Type');
+
+            } catch (error) {
+                console.error('Error fetching config:', error);
+                musicalKeySelect.innerHTML = '<option value="">Error loading keys</option>';
+                musicTypeSelect.innerHTML = '<option value="">Error loading types</option>';
+                resultsDiv.innerHTML = `<p class="error">Could not load configuration from server: ${error.message}</p>`;
+            }
+        }
+
+        function populateSelect(selectElement, options, defaultOptionText) {
+            selectElement.innerHTML = `<option value="">${defaultOptionText}</option>`; // Clear existing options and add default
+            if (options && Array.isArray(options)) {
+                options.forEach(option => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = option;
+                    optionElement.textContent = option;
+                    selectElement.appendChild(optionElement);
+                });
+            } else {
+                 console.warn("Options for select element were not valid:", options);
+                 selectElement.innerHTML = `<option value="">Error: Invalid options</option>`;
+            }
+        }
+
+        chordForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const selectedKey = musicalKeySelect.value;
+            const selectedType = musicTypeSelect.value;
+
+            if (!selectedKey || !selectedType) {
+                resultsDiv.innerHTML = '<p class="error">Please select both a musical key and a music type.</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '<div class="loading">Loading progressions...</div>';
+
+            try {
+                const response = await fetch(`${backendBaseUrl}/api/chord-progressions?key=${encodeURIComponent(selectedKey)}&musicType=${encodeURIComponent(selectedType)}`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: `HTTP error! status: ${response.status}` }));
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                console.error('Error fetching chord progressions:', error);
+                resultsDiv.innerHTML = `<p class="error">Failed to fetch chord progressions: ${error.message}</p>`;
+            }
+        });
+
+        function displayResults(data) {
+            resultsDiv.innerHTML = ''; // Clear previous results or loading message
+
+            if (data.error) {
+                resultsDiv.innerHTML = `<p class="error">${data.error}</p>`;
+                return;
+            }
+
+            // Handle case where Gemini might return plain text
+            if (data.progressions_text) {
+                 const lines = data.progressions_text.split('\n');
+                 let currentProgression = null;
+                 lines.forEach(line => {
+                    line = line.trim();
+                    if (line.toLowerCase().startsWith("progression:")) {
+                        if (currentProgression) resultsDiv.appendChild(currentProgression);
+                        currentProgression = document.createElement('div');
+                        currentProgression.className = 'progression';
+                        const title = document.createElement('h3');
+                        title.textContent = line;
+                        currentProgression.appendChild(title);
+                    } else if (line.toLowerCase().startsWith("songs:") && currentProgression) {
+                        const songs = document.createElement('p');
+                        songs.textContent = line;
+                        currentProgression.appendChild(songs);
+                    } else if (line && currentProgression) { // Append other relevant lines
+                        const detail = document.createElement('p');
+                        detail.textContent = line;
+                        currentProgression.appendChild(detail);
+                    }
+                 });
+                 if (currentProgression) resultsDiv.appendChild(currentProgression); // Append last one
+
+                 if(resultsDiv.innerHTML === '') { // If no progressions were parsed
+                    resultsDiv.innerHTML = '<p>No structured progressions found, showing raw text:</p>';
+                    const pre = document.createElement('pre');
+                    pre.textContent = data.progressions_text;
+                    resultsDiv.appendChild(pre);
+                 }
+
+            } else if (typeof data === 'object' && data !== null) {
+                // This part assumes Gemini might return a more structured JSON directly
+                // e.g. { "progressions": [ { "name": "I-IV-V", "songs": ["Song A", "Song B"] } ] }
+                // This is an optimistic scenario, the prompt asks for text.
+                if (data.progressions && Array.isArray(data.progressions)) {
+                    data.progressions.forEach(prog => {
+                        const progressionDiv = document.createElement('div');
+                        progressionDiv.className = 'progression';
+
+                        const title = document.createElement('h3');
+                        title.textContent = prog.name || 'Unnamed Progression';
+                        progressionDiv.appendChild(title);
+
+                        if (prog.songs && Array.isArray(prog.songs)) {
+                            const songsP = document.createElement('p');
+                            songsP.textContent = 'Songs: ' + prog.songs.join(', ');
+                            progressionDiv.appendChild(songsP);
+                        }
+                        resultsDiv.appendChild(progressionDiv);
+                    });
+                } else {
+                     resultsDiv.innerHTML = '<p>Received data, but not in the expected structured format. Displaying raw JSON:</p>';
+                     const pre = document.createElement('pre');
+                     pre.textContent = JSON.stringify(data, null, 2);
+                     resultsDiv.appendChild(pre);
+                }
+            } else {
+                 resultsDiv.innerHTML = '<p>No results found or unexpected data format.</p>';
+            }
+
+            if (resultsDiv.innerHTML === '') {
+                 resultsDiv.innerHTML = '<p>No chord progressions found for the selected criteria.</p>';
+            }
+        }
+
+        // Fetch config when the page loads
+        document.addEventListener('DOMContentLoaded', fetchConfig);
+    </script>
+</body>
+</html>
