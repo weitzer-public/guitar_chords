@@ -103,18 +103,22 @@ c.  **Start the frontend server:**
     ```
     (Assuming `scripts: { "start": "node server.js" }` is in `frontend/package.json`. If not, use `node server.js`)
 
-    The frontend server will also typically try to start on `http://localhost:8080`.
+    The frontend server will now default to `http://localhost:3000`.
 
-    **Port Conflict Note:** If the backend is already running on port 8080, the frontend server will fail to start or vice-versa. You'll need to run them on different ports.
-    *   To change the frontend port: Modify the `port` variable in `frontend/server.js` (e.g., `const port = process.env.PORT || 3000;`).
-    *   Then, access the frontend at `http://localhost:3000`.
-    *   The frontend JavaScript (`frontend/public/index.html`) is configured to talk to the backend at `http://localhost:8080` (the `backendBaseUrl` variable). If your backend is on a different port, you'll need to update this URL in `frontend/public/index.html`.
+### Port Configuration for Local Development
+
+*   **Backend (`backend/server.js`):** Defaults to port `8080`. You can change this by setting the `PORT` environment variable before running `npm start` (e.g., `PORT=8081 npm start`).
+*   **Frontend (`frontend/server.js`):** Defaults to port `3000`. You can change this by setting the `PORT` environment variable (e.g., `PORT=3001 npm start`).
+
+**Important:** The frontend application (`frontend/public/index.html`) is configured to communicate with the backend API at `http://localhost:8080` (this is set in its `backendBaseUrl` JavaScript variable).
+*   If you change the backend port from its default `8080`, you **must** update the `backendBaseUrl` variable in `frontend/public/index.html` to match the new backend port, and then restart the frontend server.
+*   Changing the frontend port does not require changes in `backendBaseUrl`.
 
 ### 3. Accessing the Application
 
 Once both servers are running (on different ports if necessary):
 
-*   Open your web browser and navigate to the frontend URL (e.g., `http://localhost:3000` if you changed the frontend port).
+*   Open your web browser and navigate to the frontend URL, which defaults to `http://localhost:3000`.
 *   The musical keys and types should load in the dropdowns.
 *   Select your desired options and click "Get Chord Progressions".
 
