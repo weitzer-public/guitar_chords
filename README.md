@@ -129,3 +129,5 @@ Both the `backend` and `frontend` directories contain `Dockerfile`s, allowing th
 When deploying:
 *   **Backend:** Ensure the `GEMINI_API_KEY` environment variable is set in your Cloud Run service configuration.
 *   **Frontend:** You might need to configure the `backendBaseUrl` in `frontend/public/index.html` to point to the deployed URL of your backend service. This can be done by rebuilding the frontend image with the correct URL or by having the frontend server inject this configuration at runtime (an advanced setup not currently implemented).
+
+*   test
